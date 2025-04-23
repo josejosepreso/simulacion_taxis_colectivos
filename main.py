@@ -43,7 +43,8 @@ class Pasajero:
             if len(cola_pasajeros) < NUM_ASIENTOS_VEHICULO:
                 return
             
-            siguientes_pasajeros = [ cola_pasajeros.pop(0) for _ in range(NUM_ASIENTOS_VEHICULO) ]
+            siguientes_pasajeros = sorted([ cola_pasajeros.pop(0) for _ in range(NUM_ASIENTOS_VEHICULO) ], key = lambda p: p.destino.punto)
+            # siguientes_pasajeros = [ cola_pasajeros.pop(0) for _ in range(NUM_ASIENTOS_VEHICULO) ]
             ids_pasajeros = [ p.id for p in siguientes_pasajeros ]
             
             print(f"{self.env.now}: pasajeros {ids_pasajeros} con destino a colonia {colonia} listos para subir a taxi")
@@ -57,13 +58,23 @@ class Pasajero:
             # self.env.process(vehiculo.start(siguientes_pasajeros))
 
             # Pasajeros estan dentro del vehiculo
-            tiempo = int(60 * (sum([ p.destino.distancia_absoluta for p in siguientes_pasajeros ]) / random.randint(15, 25)))
 
-            t = self.env.now
-        
-            yield self.env.timeout(tiempo)
+            velocidad = random.randint(15, 25)
             
-            print(f"{self.env.now}: vehiculo con id {vehiculo.id} vuelve a punto de taxi. Tiempo del viaje: {self.env.now - t}")
+            t_abs = [ int(60 * p.destino.distancia_absoluta / velocidad) for p in siguientes_pasajeros ]
+            t_relat = [t_abs[0]] + [ t_abs[i] - t_abs[i - 1] for i in range(1, len(t_abs)) ]
+
+            now = self.env.now
+
+            for pasajero, tiempo in zip(siguientes_pasajeros, t_relat):
+                yield self.env.timeout(tiempo)
+                print(f"{self.env.now}: pasajero con id {pasajero.id} llego a su destino: colonia {colonia}, punto {pasajero.destino.punto}")
+
+            print(f"{self.env.now}: vehiculo con id {vehiculo.id} volviendo al punto de taxi...")
+                
+            yield self.env.timeout(max(t_abs))
+            
+            print(f"{self.env.now}: vehiculo con id {vehiculo.id} volvio al punto de taxi. Tiempo del viaje: {self.env.now - now}")
 
             self.punto_taxi.cola_vehiculos.append(vehiculo)
 
